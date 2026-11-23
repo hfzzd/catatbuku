@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "catatbuku"
+version = "0.1.0"
+description = "CatatBuku — pencatat bacaan berbahasa Indonesia: kelola daftar buku, catat progres halaman, dan lihat statistik bacaanmu. CLI Python."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Hafizd Ammar", email = "hafizdammar@gmail.com" }]
+
+[project.scripts]
+catatbuku = "catatbuku.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["catatbuku*"]
