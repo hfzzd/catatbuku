@@ -10,6 +10,7 @@ from .buku import (
     STATUS_SEDANG,
     STATUS_SELESAI,
     CatatBukuError,
+    ambil,
     catat_progres,
     hapus_buku,
     label_status,
@@ -19,6 +20,7 @@ from .buku import (
     statistik,
     tambah_buku,
 )
+from .sesi import catat_sesi, muat_sesi, sesi_terakhir, simpan_sesi
 from .target import atur_target, hitung_target, muat_target, simpan_target
 
 
@@ -66,6 +68,14 @@ def _parser():
     )
     tg.add_argument(
         "--tahun", type=int, default=None, help="Tahun target (bawaan: tahun ini)."
+    )
+
+    s = sub.add_parser("sesi", help="Lihat riwayat sesi baca terakhir.")
+    s.add_argument(
+        "--jumlah",
+        type=int,
+        default=10,
+        help="Jumlah sesi yang ditampilkan (bawaan: 10).",
     )
 
     return p
@@ -190,10 +200,35 @@ def _cmd_target(args):
     return 0
 
 
+def _cmd_sesi(args):
+    daftar = muat_sesi()
+    if not daftar:
+        print(
+            "Belum ada sesi baca. Catat progres dulu, contoh:\n"
+            '  catatbuku progres 1 120'
+        )
+        return 0
+    terbaru, total = sesi_terakhir(daftar, args.jumlah)
+    print(f"Riwayat sesi baca ({len(terbaru)} terakhir)")
+    for sesi in terbaru:
+        print(
+            f"  {sesi['tanggal']} — {sesi['judul']}: "
+            f"{sesi['dari']} → {sesi['ke']} "
+            f"({sesi['dibaca']} halaman)"
+        )
+    print(f"Total: {total} halaman dalam {len(terbaru)} sesi.")
+    return 0
+
+
 def _cmd_progres(args):
     daftar = muat()
+    buku = ambil(daftar, args.nomor)
+    dari = buku["halaman_dibaca"]
     buku = catat_progres(daftar, args.nomor, args.halaman)
     simpan(daftar)
+    sesi_daftar = muat_sesi()
+    if catat_sesi(sesi_daftar, buku, dari, args.halaman) is not None:
+        simpan_sesi(sesi_daftar)
     if buku["status"] == STATUS_SELESAI:
         print(
             f"Selamat! Kamu menamatkan \"{buku['judul']}\" "
@@ -221,6 +256,8 @@ def main(argv=None):
             return _cmd_statistik(args)
         if args.perintah == "target":
             return _cmd_target(args)
+        if args.perintah == "sesi":
+            return _cmd_sesi(args)
         if args.perintah == "progres":
             return _cmd_progres(args)
         _parser().print_help()
