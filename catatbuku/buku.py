@@ -137,8 +137,11 @@ def catat_progres(daftar, nomor, halaman):
         buku["status"] = STATUS_INGIN
     elif halaman == buku["halaman_total"]:
         buku["status"] = STATUS_SELESAI
+        buku["selesai"] = date.today().isoformat()
     else:
         buku["status"] = STATUS_SEDANG
+    if buku["status"] != STATUS_SELESAI:
+        buku.pop("selesai", None)
     return buku
 
 

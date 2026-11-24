@@ -19,6 +19,7 @@ from .buku import (
     statistik,
     tambah_buku,
 )
+from .target import atur_target, hitung_target, muat_target, simpan_target
 
 
 def _parser():
@@ -53,6 +54,19 @@ def _parser():
     h.add_argument("nomor", type=int, help="Nomor buku (lihat `daftar`).")
 
     sub.add_parser("statistik", help="Lihat ringkasan statistik bacaan.")
+
+    tg = sub.add_parser(
+        "target", help="Atur atau lihat target baca tahunan."
+    )
+    tg.add_argument(
+        "jumlah",
+        type=int,
+        nargs="?",
+        help="Target jumlah buku (tanpa ini: lihat progres target).",
+    )
+    tg.add_argument(
+        "--tahun", type=int, default=None, help="Tahun target (bawaan: tahun ini)."
+    )
 
     return p
 
@@ -141,6 +155,41 @@ def _cmd_statistik(args):
     return 0
 
 
+def _cmd_target(args):
+    from datetime import date
+
+    tahun = args.tahun if args.tahun is not None else date.today().year
+    targets = muat_target()
+    if args.jumlah is not None:
+        atur_target(targets, tahun, args.jumlah)
+        simpan_target(targets)
+        print(f"Target {tahun}: {args.jumlah} buku. Semangat membacanya!")
+        return 0
+    daftar = muat()
+    hasil = hitung_target(daftar, targets, tahun)
+    if hasil["target"] is None:
+        print(
+            f"Belum ada target untuk {tahun}. Atur dulu, contoh:\n"
+            f"  catatbuku target 12 --tahun {tahun}"
+        )
+        return 0
+    print(
+        f"Target {tahun}: {hasil['selesai']}/{hasil['target']} buku "
+        f"({hasil['persen']}%)"
+    )
+    if hasil["sisa"] == 0:
+        print("Selamat! Target tahun ini sudah tercapai.")
+    elif hasil["per_bulan"] is None:
+        print(f"Sisa {hasil['sisa']} buku — tahun {tahun} sudah lewat.")
+    else:
+        print(
+            f"Sisa {hasil['sisa']} buku dalam "
+            f"{hasil['bulan_tersisa']} bulan — "
+            f"butuh sekitar {hasil['per_bulan']} buku/bulan."
+        )
+    return 0
+
+
 def _cmd_progres(args):
     daftar = muat()
     buku = catat_progres(daftar, args.nomor, args.halaman)
@@ -170,6 +219,8 @@ def main(argv=None):
             return _cmd_hapus(args)
         if args.perintah == "statistik":
             return _cmd_statistik(args)
+        if args.perintah == "target":
+            return _cmd_target(args)
         if args.perintah == "progres":
             return _cmd_progres(args)
         _parser().print_help()
