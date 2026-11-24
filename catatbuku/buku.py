@@ -142,6 +142,13 @@ def catat_progres(daftar, nomor, halaman):
     return buku
 
 
+def hapus_buku(daftar, nomor):
+    """Hapus buku berdasarkan nomor urut; kembalikan buku yang dihapus."""
+    buku = ambil(daftar, nomor)
+    del daftar[nomor - 1]
+    return buku
+
+
 def label_status(status):
     """Label Bahasa Indonesia untuk sebuah kode status."""
     return STATUS_LABEL.get(status, status)

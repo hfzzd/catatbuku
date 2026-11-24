@@ -11,6 +11,7 @@ from .buku import (
     STATUS_SELESAI,
     CatatBukuError,
     catat_progres,
+    hapus_buku,
     label_status,
     muat,
     persen,
@@ -46,6 +47,9 @@ def _parser():
     )
     pr.add_argument("nomor", type=int, help="Nomor buku (lihat `daftar`).")
     pr.add_argument("halaman", type=int, help="Halaman terakhir yang dibaca.")
+
+    h = sub.add_parser("hapus", help="Hapus buku dari daftar bacaan.")
+    h.add_argument("nomor", type=int, help="Nomor buku (lihat `daftar`).")
 
     return p
 
@@ -92,6 +96,15 @@ def _cmd_daftar(args):
     return 0
 
 
+def _cmd_hapus(args):
+    daftar = muat()
+    buku = hapus_buku(daftar, args.nomor)
+    simpan(daftar)
+    print(f"Buku dihapus: {buku['judul']} — {buku['penulis']}")
+    print(f"Sisa {len(daftar)} buku di daftar bacaan.")
+    return 0
+
+
 def _cmd_progres(args):
     daftar = muat()
     buku = catat_progres(daftar, args.nomor, args.halaman)
@@ -117,6 +130,8 @@ def main(argv=None):
             return _cmd_tambah(args)
         if args.perintah == "daftar":
             return _cmd_daftar(args)
+        if args.perintah == "hapus":
+            return _cmd_hapus(args)
         if args.perintah == "progres":
             return _cmd_progres(args)
         _parser().print_help()
