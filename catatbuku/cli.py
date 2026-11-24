@@ -16,6 +16,7 @@ from .buku import (
     muat,
     persen,
     simpan,
+    statistik,
     tambah_buku,
 )
 
@@ -50,6 +51,8 @@ def _parser():
 
     h = sub.add_parser("hapus", help="Hapus buku dari daftar bacaan.")
     h.add_argument("nomor", type=int, help="Nomor buku (lihat `daftar`).")
+
+    sub.add_parser("statistik", help="Lihat ringkasan statistik bacaan.")
 
     return p
 
@@ -105,6 +108,39 @@ def _cmd_hapus(args):
     return 0
 
 
+def _cmd_statistik(args):
+    daftar = muat()
+    if not daftar:
+        print(
+            "Daftar bacaan masih kosong, jadi belum ada statistik. "
+            "Tambah buku dulu:\n"
+            '  catatbuku tambah "Judul Buku" --penulis "Nama" --halaman 200'
+        )
+        return 0
+    stat = statistik(daftar)
+    per = stat["per_status"]
+    print("Statistik bacaan")
+    print(f"  Total buku: {stat['total']}")
+    print(
+        f"  Ingin dibaca: {per[STATUS_INGIN]} · "
+        f"Sedang dibaca: {per[STATUS_SEDANG]} · "
+        f"Selesai: {per[STATUS_SELESAI]}"
+    )
+    print(
+        f"  Halaman dibaca: {stat['total_dibaca']}/"
+        f"{stat['total_halaman']} ({stat['persen']}%)"
+    )
+    if stat["sedang"]:
+        print("  Sedang dibaca:")
+        for nomor, buku in stat["sedang"]:
+            print(
+                f"    {nomor}. {buku['judul']} — "
+                f"{buku['halaman_dibaca']}/{buku['halaman_total']} halaman "
+                f"({persen(buku)}%)"
+            )
+    return 0
+
+
 def _cmd_progres(args):
     daftar = muat()
     buku = catat_progres(daftar, args.nomor, args.halaman)
@@ -132,6 +168,8 @@ def main(argv=None):
             return _cmd_daftar(args)
         if args.perintah == "hapus":
             return _cmd_hapus(args)
+        if args.perintah == "statistik":
+            return _cmd_statistik(args)
         if args.perintah == "progres":
             return _cmd_progres(args)
         _parser().print_help()

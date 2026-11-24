@@ -149,6 +149,41 @@ def hapus_buku(daftar, nomor):
     return buku
 
 
+def statistik(daftar):
+    """Hitung ringkasan bacaan: total, per status, halaman, dan yang sedang dibaca.
+
+    Kembalikan dict:
+        total, per_status {ingin, sedang, selesai}, total_dibaca,
+        total_halaman, persen (keseluruhan, dibulatkan),
+        sedang [(nomor, buku), ...] buku yang sedang dibaca.
+    """
+    per_status = {
+        STATUS_INGIN: 0,
+        STATUS_SEDANG: 0,
+        STATUS_SELESAI: 0,
+    }
+    total_dibaca = 0
+    total_halaman = 0
+    sedang = []
+    for nomor, buku in enumerate(daftar, start=1):
+        per_status[buku["status"]] = per_status.get(buku["status"], 0) + 1
+        total_dibaca += buku["halaman_dibaca"]
+        total_halaman += buku["halaman_total"]
+        if buku["status"] == STATUS_SEDANG:
+            sedang.append((nomor, buku))
+    persen_total = (
+        round(100 * total_dibaca / total_halaman) if total_halaman else 0
+    )
+    return {
+        "total": len(daftar),
+        "per_status": per_status,
+        "total_dibaca": total_dibaca,
+        "total_halaman": total_halaman,
+        "persen": persen_total,
+        "sedang": sedang,
+    }
+
+
 def label_status(status):
     """Label Bahasa Indonesia untuk sebuah kode status."""
     return STATUS_LABEL.get(status, status)
