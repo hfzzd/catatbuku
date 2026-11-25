@@ -4,11 +4,14 @@ Setiap test memakai berkas data sendiri di /tmp lewat env CATATBUKU_DATA,
 jadi data asli pengguna tidak tersentuh.
 """
 
+import csv
+import math
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -128,6 +131,135 @@ class CliTestCase(unittest.TestCase):
         r = self.jalankan("--version")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("0.1.0", r.stdout)
+
+    # --- target ---
+
+    def test_target_atur_lalu_progres_persen_benar(self):
+        self.jalankan("tambah", "A", "--halaman", "100")
+        self.jalankan("tambah", "B", "--halaman", "200")
+        self.jalankan("progres", "1", "100")
+        r = self.jalankan("target", "4")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("Target 2026: 4 buku", r.stdout)
+        tahun = date.today().year
+        bulan_tersisa = 12 - date.today().month + 1
+        per_bulan = math.ceil(3 / bulan_tersisa)
+        r = self.jalankan("target")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(f"Target {tahun}: 1/4 buku (25%)", r.stdout)
+        self.assertIn(
+            f"Sisa 3 buku dalam {bulan_tersisa} bulan — "
+            f"butuh sekitar {per_bulan} buku/bulan.",
+            r.stdout,
+        )
+
+    def test_target_belum_ada_pesan_ramah(self):
+        r = self.jalankan("target")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("Belum ada target", r.stdout)
+
+    def test_target_nol_exit_1(self):
+        r = self.jalankan("target", "0")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("lebih dari 0", r.stderr)
+
+    def test_target_tahun_1999_exit_1(self):
+        r = self.jalankan("target", "12", "--tahun", "1999")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("antara 2000 dan 2100", r.stderr)
+
+    def test_target_tercapai_pesan_selamat(self):
+        self.jalankan("tambah", "A", "--halaman", "100")
+        self.jalankan("progres", "1", "100")
+        self.jalankan("target", "1")
+        r = self.jalankan("target")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("1/1 buku (100%)", r.stdout)
+        self.assertIn("Target tahun ini sudah tercapai", r.stdout)
+
+    # --- sesi ---
+
+    def test_sesi_dua_progres_urutan_terbaru_dulu(self):
+        self.jalankan("tambah", "A", "--halaman", "100")
+        self.jalankan("tambah", "B", "--halaman", "200")
+        self.jalankan("progres", "1", "40")
+        self.jalankan("progres", "2", "150")
+        self.jalankan("progres", "1", "80")
+        r = self.jalankan("sesi")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("Riwayat sesi baca (3 terakhir)", r.stdout)
+        self.assertIn("Total: 230 halaman dalam 3 sesi.", r.stdout)
+        # Terbaru dulu: A 40→80, lalu B 0→150, lalu A 0→40.
+        i1 = r.stdout.index("A: 40 → 80")
+        i2 = r.stdout.index("B: 0 → 150")
+        i3 = r.stdout.index("A: 0 → 40")
+        self.assertLess(i1, i2)
+        self.assertLess(i2, i3)
+
+    def test_sesi_progres_mundur_tidak_tercatat(self):
+        self.jalankan("tambah", "A", "--halaman", "100")
+        self.jalankan("progres", "1", "40")
+        self.jalankan("progres", "1", "20")
+        r = self.jalankan("sesi")
+        self.assertIn("Total: 40 halaman dalam 1 sesi.", r.stdout)
+
+    def test_sesi_kosong_exit_0(self):
+        r = self.jalankan("sesi")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("Belum ada sesi baca", r.stdout)
+
+    def test_sesi_jumlah_satu(self):
+        self.jalankan("tambah", "A", "--halaman", "100")
+        self.jalankan("progres", "1", "40")
+        self.jalankan("progres", "1", "80")
+        r = self.jalankan("sesi", "--jumlah", "1")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("Riwayat sesi baca (1 terakhir)", r.stdout)
+        self.assertIn("A: 40 → 80", r.stdout)
+        self.assertNotIn("A: 0 → 40", r.stdout)
+        self.assertIn("Total: 40 halaman dalam 1 sesi.", r.stdout)
+
+    # --- ekspor ---
+
+    def test_ekspor_csv_isi_benar(self):
+        self.jalankan(
+            "tambah", "Laskar, Pelangi", "--penulis", "Andrea Hirata",
+            "--halaman", "529",
+        )
+        self.jalankan("tambah", "B", "--halaman", "200")
+        self.jalankan("progres", "1", "120")
+        berkas = os.path.join(self.tmp.name, "buku.csv")
+        r = self.jalankan("ekspor", berkas)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("Diekspor 2 buku", r.stdout)
+        with open(berkas, encoding="utf-8", newline="") as f:
+            baris = list(csv.reader(f))
+        self.assertEqual(
+            baris[0],
+            [
+                "nomor",
+                "judul",
+                "penulis",
+                "halaman_total",
+                "halaman_dibaca",
+                "persen",
+                "status",
+                "ditambahkan",
+            ],
+        )
+        self.assertEqual(baris[1][1], "Laskar, Pelangi")
+        self.assertEqual(baris[1][4], "120")
+        self.assertEqual(baris[1][5], "23")
+        self.assertEqual(baris[1][6], "sedang")
+        self.assertEqual(baris[2][1], "B")
+        self.assertEqual(baris[2][6], "ingin")
+
+    def test_ekspor_kosong_exit_0(self):
+        berkas = os.path.join(self.tmp.name, "buku.csv")
+        r = self.jalankan("ekspor", berkas)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("masih kosong", r.stdout)
+        self.assertFalse(os.path.exists(berkas))
 
 
 if __name__ == "__main__":
