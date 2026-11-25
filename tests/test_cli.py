@@ -130,7 +130,7 @@ class CliTestCase(unittest.TestCase):
     def test_version(self):
         r = self.jalankan("--version")
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("0.1.0", r.stdout)
+        self.assertIn("0.2.0", r.stdout)
 
     # --- target ---
 
