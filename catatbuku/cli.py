@@ -20,6 +20,7 @@ from .buku import (
     statistik,
     tambah_buku,
 )
+from .ekspor import ekspor_csv
 from .sesi import catat_sesi, muat_sesi, sesi_terakhir, simpan_sesi
 from .target import atur_target, hitung_target, muat_target, simpan_target
 
@@ -76,6 +77,14 @@ def _parser():
         type=int,
         default=10,
         help="Jumlah sesi yang ditampilkan (bawaan: 10).",
+    )
+
+    e = sub.add_parser("ekspor", help="Ekspor daftar buku ke berkas CSV.")
+    e.add_argument(
+        "berkas",
+        nargs="?",
+        default="daftar-buku.csv",
+        help="Nama berkas CSV tujuan (bawaan: daftar-buku.csv).",
     )
 
     return p
@@ -200,6 +209,19 @@ def _cmd_target(args):
     return 0
 
 
+def _cmd_ekspor(args):
+    daftar = muat()
+    if not daftar:
+        print(
+            "Daftar bacaan masih kosong, jadi belum ada yang bisa diekspor. "
+            "Tambah buku dulu."
+        )
+        return 0
+    jumlah = ekspor_csv(daftar, args.berkas)
+    print(f"Diekspor {jumlah} buku ke {args.berkas}.")
+    return 0
+
+
 def _cmd_sesi(args):
     daftar = muat_sesi()
     if not daftar:
@@ -258,6 +280,8 @@ def main(argv=None):
             return _cmd_target(args)
         if args.perintah == "sesi":
             return _cmd_sesi(args)
+        if args.perintah == "ekspor":
+            return _cmd_ekspor(args)
         if args.perintah == "progres":
             return _cmd_progres(args)
         _parser().print_help()
